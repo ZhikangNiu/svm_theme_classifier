@@ -3,6 +3,7 @@
 # @Author  : Zhikang Niu
 # @FileName: train.py
 # @Software: PyCharm
+import glob
 from math import ceil
 
 from sklearn import svm
@@ -75,7 +76,7 @@ def generate_test_index(every_label_nums=50,use_cnn=False,model=None,use_pca=Tru
 
 
 
-def load_image_data(file_path,train_file_path,sample_num=100,use_cnn=False,model=None,use_pca=True):
+def load_image_data(file_path,train_file_path=None,mode='train',sample_num=100,use_cnn=False,model=None,use_pca=True):
 
     """
     从整个数据集里随机采样一定数量的数据构建train_labels和train_datas
@@ -89,20 +90,29 @@ def load_image_data(file_path,train_file_path,sample_num=100,use_cnn=False,model
         train_labels: 训练标签
 
     """
-    train_datas = []
-    train_labels = []
-    random_index = np.random.randint(0, 60000, sample_num)
-    with open(train_file_path,'r') as f:
-        info = np.asarray(f.readlines())[random_index]
-        for img_info in info:
-            img_path = img_info.split(" ")[0]
-            img_label = img_info.split(" ")[1].strip()
-            # print(os.path.join(file_path,img_label,img_path))
-            img = extract_feature(os.path.join(file_path,img_label,img_path),use_cnn=use_cnn,model=model,use_pca=use_pca)
-            train_datas.append(img)
-            train_labels.append(img_label)
+    if mode == 'train' or mode == 'test':
+        datas = []
+        labels = []
+        random_index = np.random.randint(0, 60000, sample_num)
+        with open(train_file_path,'r') as f:
+            info = np.asarray(f.readlines())[random_index]
+            for img_info in info:
+                img_path = img_info.split(" ")[0]
+                img_label = img_info.split(" ")[1].strip()
+                # print(os.path.join(file_path,img_label,img_path))
+                img = extract_feature(os.path.join(file_path,img_label,img_path),use_cnn=use_cnn,model=model,use_pca=use_pca)
+                datas.append(img)
+                labels.append(img_label)
 
-    return np.asarray(train_datas),np.asarray(train_labels)
+        return np.asarray(datas),np.asarray(labels)
+    if mode == 'infer':
+        datas = []
+        # 获取一个视频下所有的图片
+        datas_path = glob.glob(os.path.join(file_path,'*.jpg'))
+        for data_path in datas_path:
+            img = extract_feature(data_path,use_cnn=use_cnn,model=model,use_pca=use_pca)
+            datas.append(img)
+        return np.asarray(datas)
 
 def extract_feature(image_path,use_cnn=False,model=None,use_pca=True):
     """
@@ -194,11 +204,7 @@ def test_best_svm(main_label,ker_list,test_data,test_label):
         acc = svm_model.score(test_data, test_label)
         print(f"{class_name}-{ker}-预测正确率：{acc * 100}%")
 
-def inference(image_path,main_label):
-    model = pickle.load(open(f'svm_model_{main_label}.pkl', 'rb'))
-    img = extract_feature(image_path)
-    pred = model.predict([img])
-    print(pred)
+
 
 
 
@@ -215,10 +221,10 @@ if __name__ == '__main__':
     model.eval()
 
 
-    # for label_name in labels:
-    #     train_data,train_label = load_image_data('/home/public/datasets/split_data','train.txt',sample_num=1000,use_cnn=True,model=model,use_pca=True)
-    #     print("-"*6+f"训练类别为{label_name}的模型"+"-"*6)
-    #     train_svm(train_data,train_label,label_name,fold=10)
+    for label_name in labels:
+        train_data,train_label = load_image_data('/home/public/datasets/split_data','train.txt',sample_num=1000,use_cnn=True,model=model,use_pca=True)
+        print("-"*6+f"训练类别为{label_name}的模型"+"-"*6)
+        train_svm(train_data,train_label,label_name,fold=10)
 
     test_data,test_label = generate_test_index(use_cnn=True,model=model,use_pca=True)
     test_data_1, test_label_1 = test_data[0:50], test_label[0:50]
