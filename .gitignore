@@ -74,6 +74,6 @@ fabric.properties
 *.pkl
 
 .idea/
-./test/
+./test/*.mp4
 
 train_log.txt
