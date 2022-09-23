@@ -17,19 +17,14 @@ import pickle
 from torchvision.models import resnet50
 import torch
 class ThemePredict(object):
-    def __init__(self,video_path,extract_frame_mode="time_gap",time_gap=10,use_cnn_ectract=True):
+    def __init__(self,extract_frame_mode="time_gap",time_gap=10,use_cnn_ectract=True):
         self.mode = extract_frame_mode
-        self.video_path = self._get_video_path(video_path)
         self.model_scenery = pickle.load(open(f'svm_linear_scenery.pkl', 'rb'))
         self.model_pet = pickle.load(open(f'svm_linear_pet.pkl', 'rb'))
         self.model_child = pickle.load(open(f'svm_sigmoid_child.pkl', 'rb'))
         self.model_sport = pickle.load(open(f'svm_linear_sport.pkl', 'rb'))
 
-
         self.time_gap = time_gap
-        self.save_path = f"./extract_frame{self.mode}_{self.video_path.split('/')[-1].split('.')[0]}"
-        print(f"抽帧图片将会保存在{self.save_path}文件夹中，程序运行结束将会删除")
-        self._extract_frame()
         if use_cnn_ectract:
             backbone = resnet50(pretrained=True)
             features = list(backbone.children())[:-2]
@@ -42,15 +37,21 @@ class ThemePredict(object):
         assert self.mode in ["time_gap","key_frame"], "抽帧模式不正确，请输入time_gap或者key_frame"
         return video_path
 
-    def _extract_frame(self):
+    def _extract_frame(self,video_path,save_path):
         if self.mode == "time_gap":
-            extract_time_gap_frame(self.video_path,save_path=self.save_path,time_gap=self.time_gap)
+            extract_time_gap_frame(video_path,save_path=save_path,time_gap=self.time_gap)
         elif self.mode == 'key_frame':
-            extract_time_gap_frame(self.video_path,save_path=self.save_path)
+            extract_time_gap_frame(video_path,save_path=save_path)
         print("抽帧完成")
 
-    def predict(self,rmdir=True):
-        image_data = load_image_data(self.save_path,mode="infer",model=self.model,use_cnn=True,use_pca=True)
+    def predict(self,video_path,rmdir=True):
+        video_path = self._get_video_path(video_path)
+        save_path = f"./extract_frame{self.mode}_{video_path.split('/')[-1].split('.')[0]}"
+        print(f"抽帧图片将会保存在{save_path}文件夹中，程序运行结束将会删除")
+        self._extract_frame(video_path,save_path)
+
+        image_data = load_image_data(save_path,mode="infer",model=self.model,use_cnn=True,use_pca=True)
+
         length = len(image_data)
         pred_scenery = self.model_scenery.predict(image_data)
         pred_pet = self.model_pet.predict(image_data)
@@ -63,13 +64,13 @@ class ThemePredict(object):
             "sport":pred_sport.sum()/length
         }
         if rmdir:
-            os.system(f"rm -rf {self.save_path}")
+            os.system(f"rm -rf {save_path}")
 
         return score_pred
 
 if __name__ == '__main__':
     video_path = "./test/9.mp4"
-    theme_predict = ThemePredict(video_path,extract_frame_mode="time_gap",time_gap=10,use_cnn_ectract=True)
-    score = theme_predict.predict()
+    theme_predict = ThemePredict(extract_frame_mode="time_gap",time_gap=10,use_cnn_ectract=True)
+    score = theme_predict.predict(video_path)
     score = sorted(score.items(),reverse=True,key=lambda item:item[1])
     print("该视频属于",score[0][0])

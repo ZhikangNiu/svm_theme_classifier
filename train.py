@@ -32,7 +32,7 @@ def setup_seed(seed):
     random.seed(seed)
     np.random.seed(seed)
 
-def write_train_file_to_txt(file_path):
+def write_file_to_txt(file_path,save_file,mode='.jpg',label_split_index=-2):
     """
     将文件夹中的训练集文件路径和类别写入txt文件中
     Args:
@@ -41,12 +41,12 @@ def write_train_file_to_txt(file_path):
     Returns:
 
     """
-    with open('train.txt','w') as f:
+    with open(save_file,'w') as f:
         for root,dirs,files in os.walk(file_path):
             for file in files:
-                if file.endswith('.jpg'):
+                if file.endswith(mode):
                     image_path = os.path.join(root,file)
-                    f.write(image_path + ' ' + root.split('/')[-2] + '\n')
+                    f.write(image_path + ' ' + root.split('/')[label_split_index] + '\n')
     f.close()
 
 def generate_test_index(every_label_nums=50,use_cnn=False,model=None,use_pca=True):
@@ -197,9 +197,11 @@ def test_best_svm(main_label,ker_list,test_data,test_label):
     class_name = test_label[0]
     test_label = np.where(test_label == main_label, 1, 0)
     print("test_label:", test_label)
+    if not os.path.exists("./checkpoints"):
+        os.mkdir("./checkpoints")
     for ker in ker_list:
         print(f"svm use kernel:{ker}")
-        svm_model_path = f"./svm_{ker}_{main_label}.pkl"
+        svm_model_path = f"./checkpoints/svm_{ker}_{main_label}.pkl"
         svm_model = pickle.load(open(svm_model_path, 'rb'))
         acc = svm_model.score(test_data, test_label)
         print(f"{class_name}-{ker}-预测正确率：{acc * 100}%")
@@ -213,7 +215,7 @@ if __name__ == '__main__':
     ker_list = ['linear', 'poly', 'rbf', 'sigmoid']
     setup_seed(3407)
     if not os.path.exists('train.txt'):
-        write_train_file_to_txt('/home/public/datasets/split_data')
+        write_file_to_txt('/home/public/datasets/split_data')
 
     backbone = resnet50(pretrained=True)
     features = list(backbone.children())[:-2]
